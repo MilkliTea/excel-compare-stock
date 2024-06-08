@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Enums\Store;
 use App\Export\StockCompareExport;
 use App\Models\Warehouse;
 use Illuminate\Console\Command;
@@ -32,51 +33,59 @@ class CompareStockCommand extends Command
         $searchedData = [];
         $mainWarehouseStockData = $this->getMainWarehouseStockData();
 
-        $emreninWarehouse = $this->getEmreninMagazaStockData();
+        $storeWarehouseData = $this->getStoreWarehouseStockData();
 
-        foreach ($emreninWarehouse as $emreninStock) {
-            if (isset($searchedData[$emreninStock->stock_code])) {
+        foreach ($storeWarehouseData as $storeStock) {
+            $productCode = $storeStock->stock_code;
+            $productName = $storeStock->stock_code_description;
+
+            if (isset($searchedData[$productCode])) {
                 continue;
             }
 
-            $searchedData[$emreninStock->stock_code] = true;
+            $searchedData[$productCode] = true;
 
-            $emreninStockByCode = $emreninWarehouse
-                ->where('stock_code', $emreninStock->stock_code);
-
-            $mainStockByCode = $mainWarehouseStockData
-                ->where('stock_code', $emreninStock->stock_code);
-
-            $emreninSizes = $emreninStockByCode->pluck('sub_stock_code')->all();
-
-            $mainWarehouseSizes = $mainStockByCode->pluck('sub_stock_code')->all();
-            $otherSizes = array_diff($mainWarehouseSizes, $emreninSizes);
-
-            $result[] = [
-                'stock_code' => $emreninStock->stock_code,
-                'product_name' => $emreninStock->stock_code_description,
-                'emrenin-sizes' => implode(', ', $emreninSizes),
-                'main_sizes' => implode(', ', $otherSizes),
-            ];
+            $result[] = $this->compareStockData($productCode, $productName, $mainWarehouseStockData, $storeWarehouseData);
         }
 
         $excel = new StockCompareExport($result);
 
-        Excel::store($excel, 'stock_comparison.xlsx', 'public');
+        Excel::store($excel, 'stock_compasdaasdrison.xlsx', 'public');
     }
 
     private function getMainWarehouseStockData(): Collection
     {
-        return Warehouse::where('stock_location', 'ETİCARET MAĞAZA')
-            ->orWhere('stock_location', 'MERKEZ DEPO')
+        return Warehouse::whereIn('stock_location', Store::mainStores())
             ->whereIn('category', ['1 - Footwear', '2 - Textile'])
             ->get();
     }
 
-    private function getEmreninMagazaStockData(): Collection
+    private function getStoreWarehouseStockData(): Collection
     {
-        return Warehouse::where('stock_location', 'HADIMKÖY MAĞAZA')
+        return Warehouse::where('stock_location', Store::HADIMKOY->value)
             ->whereIn('category', ['1 - Footwear', '2 - Textile'])
             ->get();
+    }
+
+    private function compareStockData(string $productCode, string $productName, Collection $mainWarehouseStockData, Collection $storeWarehouseData): array
+    {
+        $storeStockByCode = $storeWarehouseData
+            ->where('stock_code', $productCode);
+
+        $mainStockByCode = $mainWarehouseStockData
+            ->where('stock_code', $productCode);
+
+        $storeSizes = $storeStockByCode->pluck('sub_stock_code')->all();
+
+        $mainWarehouseSizes = $mainStockByCode->pluck('sub_stock_code')->all();
+
+        $otherSizes = array_diff($mainWarehouseSizes, $storeSizes);
+
+        return [
+            'stock_code' => $productCode,
+            'product_name' => $productName,
+            'store_sizes' => implode(', ', $storeSizes),
+            'main_warehouse_sizes' => implode(', ', $otherSizes),
+        ];
     }
 }
