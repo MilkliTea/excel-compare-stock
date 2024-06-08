@@ -22,7 +22,7 @@ class CompareStockCommand extends Command
      *
      * @var string
      */
-    protected $description = 'Command description';
+    protected $description = 'Mağazaları karşılaştırır ve ürün Bedenlerinin farklarını excel dosyasına yazar.';
 
     /**
      * Execute the console command.
@@ -35,10 +35,6 @@ class CompareStockCommand extends Command
         $emreninWarehouse = $this->getEmreninMagazaStockData();
 
         foreach ($emreninWarehouse as $emreninStock) {
-//            if ($emreninStock->stock_code !== '23.01.07.027-C07') {
-//                continue;
-//            }
-
             if (isset($searchedData[$emreninStock->stock_code])) {
                 continue;
             }
@@ -59,14 +55,14 @@ class CompareStockCommand extends Command
             $result[] = [
                 'stock_code' => $emreninStock->stock_code,
                 'product_name' => $emreninStock->stock_code_description,
-                'emrenin-sizes' => implode(',', $emreninSizes),
-                'main_sizes' => implode(',', $otherSizes),
+                'emrenin-sizes' => implode(', ', $emreninSizes),
+                'main_sizes' => implode(', ', $otherSizes),
             ];
         }
 
-        $export = new StockCompareExport([]);
-        Excel::download($export, 'stock_comparison.xlsx');
-        return;
+        $excel = new StockCompareExport($result);
+
+        Excel::store($excel, 'stock_comparison.xlsx', 'public');
     }
 
     private function getMainWarehouseStockData(): Collection
